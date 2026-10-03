@@ -1,6 +1,6 @@
 # Did we score 31?
 
-A Twitter/X bot that, after every game, asks whether your college football team scored 31 points, and answers it:
+A Twitter/X bot that, after every game, asks whether your college football team scored 31 points, and answers it. The answer is yes if they scored 31 or more:
 
 ```
 Did Michigan score 31 points?

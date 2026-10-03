@@ -1,6 +1,6 @@
 """Did my team score 31? A Twitter/X bot.
 
-After each finished game, posts whether TEAM_ID scored exactly 31 points.
+After each finished game, posts whether TEAM_ID scored at least 31 points.
 Game results come from ESPN's public college football API; posts go out via
 the X API v2. Already-posted games are recorded in posted.json so each game is
 only tweeted once.
@@ -53,7 +53,7 @@ def finished_games(schedule, team_id):
 
 
 def compose_tweet(team, score, opp, opp_score):
-    if score == TARGET:
+    if score >= TARGET:
         return f"Did {team} score 31 points?\n\nYES! 🎉\n\n{team} {score}, {opp} {opp_score}"
     return f"Did {team} score 31 points?\n\nNo.\n\n{team} {score}, {opp} {opp_score}"
 

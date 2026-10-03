@@ -27,6 +27,9 @@ class BotTests(unittest.TestCase):
     def test_compose_yes(self):
         self.assertIn("YES", bot.compose_tweet("Michigan", 31, "Rival", 10))
 
+    def test_compose_yes_above_31(self):
+        self.assertIn("YES", bot.compose_tweet("Michigan", 45, "Rival", 10))
+
     def test_compose_no(self):
         text = bot.compose_tweet("Michigan", 30, "Rival", 10)
         self.assertIn("No.", text)

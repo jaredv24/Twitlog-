@@ -5,6 +5,11 @@ on:
     # Every 30 minutes, Thursday through Sunday (UTC), covering game days.
     - cron: "*/30 * * * 4,5,6,0"
   workflow_dispatch:
+    inputs:
+      backfill:
+        description: "Mark games already played as posted (no tweets)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -22,9 +27,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python bot.py
+      - run: python bot.py ${{ inputs.backfill && '--backfill' || '' }}
         env:
-          TEAM_ID: ${{ vars.TEAM_ID }}
+          TEAM_ID: ${{ vars.TEAM_ID || '152' }}  # 152 = NC State
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}

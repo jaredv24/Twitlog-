@@ -14,7 +14,7 @@ Is Dave Doeren still employed?
 Yes 😞
 ```
 
-It runs for free on GitHub Actions. Every 30 minutes from Thursday to Sunday, it checks ESPN's public scoreboard. When a game has finished, it posts once. The IDs of games it has already posted are saved in `posted.json`.
+It runs for free on GitHub Actions. Every 15 minutes, it checks NC State's schedule on ESPN's public API. When a game has finished, it posts once. The IDs of games it has already posted are saved in `posted.json`.
 
 ## Setup
 

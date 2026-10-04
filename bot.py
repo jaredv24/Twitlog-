@@ -72,9 +72,12 @@ def finished_games(schedule, team_id):
 
 
 def compose_tweet(team, score, opp, opp_score):
-    if score >= TARGET:
-        return f"Did {team} score 31 points?\n\nYES! 🎉\n\n{team} {score}, {opp} {opp_score}"
-    return f"Did {team} score 31 points?\n\nNo.\n\n{team} {score}, {opp} {opp_score}"
+    answer = "Yes! ✅" if score >= TARGET else "No."
+    return (
+        f"Did {team} score 31 points?\n\n{answer}\n\n"
+        f"{team} {score}, {opp} {opp_score}\n\n"
+        "Is Dave Doeren still employed?\n\nYes 😞"
+    )
 
 
 def load_state():

@@ -5,9 +5,13 @@ A Twitter/X bot that, after every game, asks whether your college football team 
 ```
 Did NC State score 31 points?
 
-YES! 🎉
+Yes! ✅
 
 NC State 34, UNC 20
+
+Is Dave Doeren still employed?
+
+Yes 😞
 ```
 
 It runs for free on GitHub Actions. Every 30 minutes from Thursday to Sunday, it checks ESPN's public scoreboard. When a game has finished, it posts once. The IDs of games it has already posted are saved in `posted.json`.

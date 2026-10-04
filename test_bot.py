@@ -26,15 +26,22 @@ class BotTests(unittest.TestCase):
                          [("1", "Michigan", 31, "Rival", 10, "2026-10-03")])
 
     def test_compose_yes(self):
-        self.assertIn("YES", bot.compose_tweet("Michigan", 31, "Rival", 10))
+        self.assertIn("Yes!", bot.compose_tweet("Michigan", 31, "Rival", 10))
 
     def test_compose_yes_above_31(self):
-        self.assertIn("YES", bot.compose_tweet("Michigan", 45, "Rival", 10))
+        self.assertIn("Yes!", bot.compose_tweet("Michigan", 45, "Rival", 10))
 
     def test_compose_no(self):
         text = bot.compose_tweet("Michigan", 30, "Rival", 10)
         self.assertIn("No.", text)
         self.assertIn("Michigan 30, Rival 10", text)
+
+    def test_compose_full_text(self):
+        self.assertEqual(
+            bot.compose_tweet("NC State", 31, "Louisville", 28),
+            "Did NC State score 31 points?\n\nYes! ✅\n\nNC State 31, Louisville 28\n\n"
+            "Is Dave Doeren still employed?\n\nYes 😞",
+        )
 
 
 if __name__ == "__main__":

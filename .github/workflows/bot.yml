@@ -10,6 +10,14 @@ on:
         description: "Mark games already played as posted (no tweets)"
         type: boolean
         default: false
+      skip_before:
+        description: "Mark games before this date (YYYY-MM-DD) as posted, tweet the rest"
+        type: string
+        default: ""
+      dry_run:
+        description: "Print tweets instead of posting them"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -27,7 +35,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python bot.py ${{ inputs.backfill && '--backfill' || '' }}
+      - run: >-
+          python bot.py
+          ${{ inputs.backfill && '--backfill' || '' }}
+          ${{ inputs.skip_before && format('--skip-before {0}', inputs.skip_before) || '' }}
+          ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
           TEAM_ID: ${{ vars.TEAM_ID || '152' }}  # 152 = NC State
           X_API_KEY: ${{ secrets.X_API_KEY }}

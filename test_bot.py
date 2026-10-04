@@ -6,6 +6,7 @@ import bot
 def event(game_id, completed, our_score, opp_score, team_id="130"):
     return {
         "id": game_id,
+        "date": "2026-10-03T23:30Z",
         "competitions": [{
             "status": {"type": {"completed": completed}},
             "competitors": [
@@ -22,7 +23,7 @@ class BotTests(unittest.TestCase):
     def test_finished_games_skips_incomplete(self):
         schedule = {"events": [event("1", True, 31, 10), event("2", False, 0, 0)]}
         self.assertEqual(list(bot.finished_games(schedule, 130)),
-                         [("1", "Michigan", 31, "Rival", 10)])
+                         [("1", "Michigan", 31, "Rival", 10, "2026-10-03")])
 
     def test_compose_yes(self):
         self.assertIn("YES", bot.compose_tweet("Michigan", 31, "Rival", 10))

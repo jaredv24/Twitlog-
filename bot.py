@@ -9,10 +9,14 @@ only tweeted once.
 import argparse
 import json
 import os
+import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ESPN_HOSTS = ["https://site.api.espn.com", "https://site.web.api.espn.com"]
 ESPN_PATH = "/apis/site/v2/sports/football/college-football"
@@ -22,7 +26,20 @@ HEADERS = {
     "Accept": "application/json",
 }
 STATE_FILE = Path(__file__).with_name("posted.json")
+SAVE_SCRIPT = Path(__file__).with_name("save_state.sh")
 TARGET = 31
+
+# Game-day watching: on a game day the bot stays running from noon ET until
+# 2 AM ET the next night, checking every few minutes. A run that starts up to
+# ARM_HOURS before noon waits for the window, since GitHub's schedule can
+# start runs hours late.
+ET = ZoneInfo("America/New_York")
+WINDOW_START_HOUR = 12
+WINDOW_END_HOUR = 2
+ARM_HOURS = 12
+POLL_SECONDS = 300
+# GitHub stops a job after 6 hours, so hand off to a fresh run before then.
+RUN_LIMIT = timedelta(hours=5, minutes=30)
 
 
 def fetch_json(path):
@@ -80,6 +97,33 @@ def compose_tweet(team, score, opp, opp_score):
     )
 
 
+def parse_kickoff(date):
+    # ESPN dates look like "2026-10-03T23:30Z".
+    return datetime.fromisoformat(date.replace("Z", "+00:00"))
+
+
+def game_window(schedule, posted, now):
+    """Return (start, end) of the game-day window the bot should be watching now, or None.
+
+    A game's window runs from noon ET on its kickoff day until 2 AM ET the
+    next day (later if kickoff is so late the game could run past that).
+    It counts as active from ARM_HOURS before the start until the end, as
+    long as the game hasn't been tweeted yet.
+    """
+    for event in schedule.get("events", []):
+        if str(event["id"]) in posted or not event.get("date"):
+            continue
+        kickoff = parse_kickoff(event["date"])
+        day = kickoff.astimezone(ET).date()
+        start = datetime(day.year, day.month, day.day, WINDOW_START_HOUR, tzinfo=ET)
+        next_day = day + timedelta(days=1)
+        end = datetime(next_day.year, next_day.month, next_day.day, WINDOW_END_HOUR, tzinfo=ET)
+        end = max(end, kickoff + timedelta(hours=5))
+        if start - timedelta(hours=ARM_HOURS) <= now < end:
+            return start, end
+    return None
+
+
 def load_state():
     if STATE_FILE.exists():
         return set(json.loads(STATE_FILE.read_text()))
@@ -119,7 +163,7 @@ def run(team_id, dry_run=False, backfill=False, skip_before=None):
             save_state(posted)
         new_games = [g for g in new_games if g not in skipped]
         if backfill:
-            return
+            return schedule
 
     for game_id, team, score, opp, opp_score, _ in new_games:
         text = compose_tweet(team, score, opp, opp_score)
@@ -128,8 +172,36 @@ def run(team_id, dry_run=False, backfill=False, skip_before=None):
             post_tweet(text)
             posted.add(game_id)
             save_state(posted)
+            if os.environ.get("GITHUB_ACTIONS"):
+                # Commit the record right away, so nothing can tweet this
+                # game again even if this run is cut off later.
+                subprocess.run(["bash", str(SAVE_SCRIPT)], check=True)
     if not new_games:
         print("No newly finished games.")
+    return schedule
+
+
+def watch(team_id):
+    """Keep checking through today's game-day window.
+
+    Returns True if the window is still open when this run must stop, so
+    the caller should hand off to a fresh run.
+    """
+    started = datetime.now(ET)
+    while True:
+        schedule = run(team_id)
+        now = datetime.now(ET)
+        window = game_window(schedule, load_state(), now)
+        if window is None:
+            print("Not in a game-day window; done.")
+            return False
+        start, end = window
+        if now - started >= RUN_LIMIT:
+            print(f"Game-day window open until {end:%a %I:%M %p %Z}; handing off.")
+            return True
+        print(f"Watching game day ({start:%a %I:%M %p} to {end:%a %I:%M %p %Z}); "
+              f"next check in {POLL_SECONDS // 60} min.")
+        time.sleep(POLL_SECONDS)
 
 
 def search_teams(query):
@@ -147,6 +219,8 @@ def main():
     p.add_argument("--backfill", action="store_true", help="mark past games as posted")
     p.add_argument("--skip-before", metavar="YYYY-MM-DD",
                    help="mark games before this date as posted, then post the rest")
+    p.add_argument("--watch", action="store_true",
+                   help="on game days, keep checking from noon to 2 AM ET")
     p.add_argument("--search", metavar="NAME", help="look up a team's ESPN id")
     args = p.parse_args()
 
@@ -155,6 +229,11 @@ def main():
         return
     if not args.team_id:
         sys.exit("Set TEAM_ID (or pass --team-id). Find it with --search 'Team Name'.")
+    if args.watch:
+        if watch(args.team_id) and os.environ.get("GITHUB_OUTPUT"):
+            with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                f.write("continue=true\n")
+        return
     run(args.team_id, dry_run=args.dry_run, backfill=args.backfill,
         skip_before=args.skip_before)
 

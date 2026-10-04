@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: write
+  actions: write  # lets a game-day run hand off to a fresh run
 
 # Only one run at a time, so two runs can never tweet the same game.
 concurrency:
@@ -32,6 +33,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
       # Check out the latest main rather than the commit that triggered the
       # run, so a queued run sees posted.json as saved by the run before it.
@@ -42,11 +44,15 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: >-
+      # Normal runs use --watch: on game days they keep checking every few
+      # minutes from noon to 2 AM ET instead of exiting.
+      - id: bot
+        run: >-
           python bot.py
           ${{ inputs.backfill && '--backfill' || '' }}
           ${{ inputs.skip_before && format('--skip-before {0}', inputs.skip_before) || '' }}
           ${{ inputs.dry_run && '--dry-run' || '' }}
+          ${{ !(inputs.backfill || inputs.skip_before || inputs.dry_run) && '--watch' || '' }}
         env:
           TEAM_ID: ${{ vars.TEAM_ID || '152' }}  # 152 = NC State
           X_API_KEY: ${{ secrets.X_API_KEY }}
@@ -55,15 +61,10 @@ jobs:
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
       - name: Save posted games
         if: always()
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add posted.json
-          git diff --cached --quiet && exit 0
-          git commit -m "Record posted games"
-          # Retry so a push race can't lose the record (which would re-tweet).
-          for i in 1 2 3 4 5; do
-            git pull --rebase origin main && git push origin HEAD:main && exit 0
-            sleep $((i * 5))
-          done
-          exit 1
+        run: bash save_state.sh
+      # Runs are capped at 6 hours, so a game day is covered by a chain of runs.
+      - name: Hand off to a fresh run
+        if: steps.bot.outputs.continue == 'true'
+        run: gh workflow run bot.yml --ref main --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -29,6 +29,12 @@ STATE_FILE = Path(__file__).with_name("posted.json")
 SAVE_SCRIPT = Path(__file__).with_name("save_state.sh")
 TARGET = 31
 
+# One-time sign-off post, sent with --announce. Its id goes in posted.json
+# so it can only ever be posted once.
+ANNOUNCEMENT_ID = "announcement-doeren-fired"
+ANNOUNCEMENT = "Dave Doeren has been fired. 🎉\n\nThis account is signing off. Go Pack."
+ANNOUNCEMENT_IMAGE = Path(__file__).with_name("assets") / "rivers.png"
+
 # Game-day watching: on a game day the bot stays running from noon ET until
 # 2 AM ET the next night, checking every few minutes. A run that starts up to
 # ARM_HOURS before noon waits for the window, since GitHub's schedule can
@@ -134,16 +140,64 @@ def save_state(posted):
     STATE_FILE.write_text(json.dumps(sorted(posted), indent=2) + "\n")
 
 
-def post_tweet(text):
-    import tweepy
-
-    client = tweepy.Client(
+def x_credentials():
+    return dict(
         consumer_key=os.environ["X_API_KEY"],
         consumer_secret=os.environ["X_API_SECRET"],
         access_token=os.environ["X_ACCESS_TOKEN"],
         access_token_secret=os.environ["X_ACCESS_TOKEN_SECRET"],
     )
-    client.create_tweet(text=text)
+
+
+def upload_image(path):
+    """Upload an image to X and return its media id."""
+    from requests_oauthlib import OAuth1Session
+
+    c = x_credentials()
+    session = OAuth1Session(c["consumer_key"], c["consumer_secret"],
+                            c["access_token"], c["access_token_secret"])
+    data = path.read_bytes()
+    r = session.post("https://api.x.com/2/media/upload",
+                     files={"media": (path.name, data, "image/png")},
+                     data={"media_category": "tweet_image"})
+    if r.ok:
+        return r.json()["data"]["id"]
+    # Fall back to the older upload endpoint.
+    print(f"v2 media upload -> HTTP {r.status_code}: {r.text[:300]}")
+    r = session.post("https://upload.twitter.com/1.1/media/upload.json",
+                     files={"media": data})
+    if not r.ok:
+        sys.exit(f"v1.1 media upload -> HTTP {r.status_code}: {r.text[:300]}")
+    return r.json()["media_id_string"]
+
+
+def post_tweet(text, media_ids=None):
+    import tweepy
+
+    client = tweepy.Client(**x_credentials())
+    client.create_tweet(text=text, media_ids=media_ids)
+
+
+def commit_state():
+    if os.environ.get("GITHUB_ACTIONS"):
+        # Commit the record right away, so nothing can post this again
+        # even if this run is cut off later.
+        subprocess.run(["bash", str(SAVE_SCRIPT)], check=True)
+
+
+def announce(dry_run=False):
+    posted = load_state()
+    if ANNOUNCEMENT_ID in posted:
+        print("Announcement already posted; not posting again.")
+        return
+    print(f"--- announcement (with {ANNOUNCEMENT_IMAGE.name}) ---\n{ANNOUNCEMENT}")
+    if dry_run:
+        return
+    post_tweet(ANNOUNCEMENT, media_ids=[upload_image(ANNOUNCEMENT_IMAGE)])
+    posted.add(ANNOUNCEMENT_ID)
+    save_state(posted)
+    commit_state()
+    print("Posted.")
 
 
 def run(team_id, dry_run=False, backfill=False, skip_before=None):
@@ -172,10 +226,7 @@ def run(team_id, dry_run=False, backfill=False, skip_before=None):
             post_tweet(text)
             posted.add(game_id)
             save_state(posted)
-            if os.environ.get("GITHUB_ACTIONS"):
-                # Commit the record right away, so nothing can tweet this
-                # game again even if this run is cut off later.
-                subprocess.run(["bash", str(SAVE_SCRIPT)], check=True)
+            commit_state()
     if not new_games:
         print("No newly finished games.")
     return schedule
@@ -221,11 +272,16 @@ def main():
                    help="mark games before this date as posted, then post the rest")
     p.add_argument("--watch", action="store_true",
                    help="on game days, keep checking from noon to 2 AM ET")
+    p.add_argument("--announce", action="store_true",
+                   help="post the one-time sign-off announcement with its photo")
     p.add_argument("--search", metavar="NAME", help="look up a team's ESPN id")
     args = p.parse_args()
 
     if args.search:
         search_teams(args.search)
+        return
+    if args.announce:
+        announce(dry_run=args.dry_run)
         return
     if not args.team_id:
         sys.exit("Set TEAM_ID (or pass --team-id). Find it with --search 'Team Name'.")

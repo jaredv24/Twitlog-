@@ -14,6 +14,10 @@ on:
         description: "Mark games before this date (YYYY-MM-DD) as posted, tweet the rest"
         type: string
         default: ""
+      announce:
+        description: "Post the one-time sign-off announcement with its photo"
+        type: boolean
+        default: false
       dry_run:
         description: "Print tweets instead of posting them"
         type: boolean
@@ -49,8 +53,9 @@ jobs:
           python bot.py
           ${{ inputs.backfill && '--backfill' || '' }}
           ${{ inputs.skip_before && format('--skip-before {0}', inputs.skip_before) || '' }}
+          ${{ inputs.announce && '--announce' || '' }}
           ${{ inputs.dry_run && '--dry-run' || '' }}
-          ${{ !(inputs.backfill || inputs.skip_before || inputs.dry_run) && '--watch' || '' }}
+          ${{ !(inputs.backfill || inputs.skip_before || inputs.dry_run || inputs.announce) && '--watch' || '' }}
         env:
           TEAM_ID: ${{ vars.TEAM_ID || '152' }}  # 152 = NC State
           X_API_KEY: ${{ secrets.X_API_KEY }}

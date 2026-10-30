@@ -93,7 +93,7 @@ def compose_tweet(team, score, opp, opp_score):
     return (
         f"Did {team} score 31 points?\n\n{answer}\n\n"
         f"{team} {score}, {opp} {opp_score}\n\n"
-        "Is Dave Doeren still employed?\n\nYes 😞"
+        "Is Dave Doeren still employed?\n\nNo 🎉"
     )
 
 

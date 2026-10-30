@@ -11,8 +11,10 @@ NC State 34, UNC 20
 
 Is Dave Doeren still employed?
 
-Yes 😞
+No 🎉
 ```
+
+**The bot is currently stopped:** its automatic schedule is turned off in `.github/workflows/bot.yml`.
 
 It runs for free on GitHub Actions and reads NC State's schedule from ESPN's public API. On game days it stays running from noon ET until 2 AM ET, checking every 5 minutes, and posts once when the game is final. GitHub's 15-minute schedule can start runs hours late, so a run that starts up to 12 hours early waits for the window, and runs hand off to each other to stay within GitHub's 6-hour limit. The IDs of games it has already posted are saved in `posted.json`.
 

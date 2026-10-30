@@ -41,7 +41,7 @@ class BotTests(unittest.TestCase):
         self.assertEqual(
             bot.compose_tweet("NC State", 31, "Louisville", 28),
             "Did NC State score 31 points?\n\nYes! ✅\n\nNC State 31, Louisville 28\n\n"
-            "Is Dave Doeren still employed?\n\nYes 😞",
+            "Is Dave Doeren still employed?\n\nNo 🎉",
         )
 
 

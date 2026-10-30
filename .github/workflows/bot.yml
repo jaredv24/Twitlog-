@@ -1,11 +1,9 @@
 name: Did we score 31?
 
 on:
-  schedule:
-    # Every 15 minutes, every day. Each run just reads NC State's schedule
-    # from ESPN and only tweets about finished games not in posted.json,
-    # so non-game days do nothing.
-    - cron: "*/15 * * * *"
+  # Automatic schedule turned off (bot stopped). To turn it back on, restore:
+  # schedule:
+  #   - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       backfill:
